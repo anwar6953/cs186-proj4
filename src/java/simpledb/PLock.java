@@ -20,15 +20,15 @@ public class PLock {
     }
     
     public static void log(String s){
-    	String tabs = "";
-    	String name = Thread.currentThread().getName();
-    	if (!name.equals("main")){ 
-	    	int numTabs = Integer.parseInt(name.substring(7, name.length()));
-	    	
-	    	for (int i=0; i<numTabs; i++)
-	    		tabs += "            ";
-    	}
-    	System.out.println(tabs + s + "[" + Thread.currentThread().getId() + "]");
+//    	String tabs = "";
+//    	String name = Thread.currentThread().getName();
+//    	if (!name.equals("main")){ 
+//	    	int numTabs = Integer.parseInt(name.substring(7, name.length()));
+//	    	
+//	    	for (int i=0; i<numTabs; i++)
+//	    		tabs += "            ";
+//    	}
+//    	System.out.println(tabs + s + "[" + Thread.currentThread().getId() + "]");
     }
     
     public static void mustHold(boolean b, String s){

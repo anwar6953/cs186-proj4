@@ -127,6 +127,10 @@ public class HeapFile implements DbFile {
     			p.insertTuple(t);
     	    	pgs.add(p);
     	    	return pgs;
+    		} else {
+    			//release the lock on the page, if no space is found to insert a tuple.
+    			//however, this is potentially hazardous, because tid might have an older lock on it.
+    			//Database.getBufferPool().releasePage(tid, pid);
     		}
     	}
 		HeapPage newPg = new HeapPage(new HeapPageId(getId(), numPages), 

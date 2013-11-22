@@ -246,14 +246,34 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for proj1
-    	PageId pid = evictMap.keySet().iterator().next();
+    	PageId pid;
+    	PageId pidToFlush = null;
     	
+    	Iterator<PageId> it = evictMap.keySet().iterator();
+    	while(it.hasNext()){
+    		pid = it.next();
+    		Page p = m_pgHash.get(pid);
+    		// Page.isDirty() returns null if clean
+    		if (p.isDirty() == null){
+    			pidToFlush = pid;
+    			break;
+    		}
+    	}
+    	
+    	
+    	//no longer flush it, because it is not dirty
+    	/*
     	try {
-    		flushPage(pid);
+    		flushPage(pidToFlush);
     	} catch (IOException e){
     		throw new DbException("IOException" + e.getMessage());
     	}
+    	*/
     	
-    	discardPage(pid);
+    	//if all of the pages in evictMap were dirty
+    	if (pidToFlush == null)
+    		throw new DbException("No clean pages found, when evicting in BufferPool.java.");
+    	
+    	discardPage(pidToFlush);
     }
 }
