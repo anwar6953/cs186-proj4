@@ -39,8 +39,13 @@ public class PLock {
     }
 
     //returns when lock is obtained. If not obtainable, Sleeps or blocks until then.
-    public static void acquireLock(TransactionId tid, PageId pid, Permissions perm){
+    public static void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException{
+    	long time_i = System.currentTimeMillis(); 
     	while (!gotLock(tid, pid, perm)){
+    		long time_n = System.currentTimeMillis();
+    		if((time_n-time_i) > 500){
+                throw new TransactionAbortedException();
+    		}
 			log("sleeping.");
 			ConcurrentHashMap<PLock, Boolean> lockSet = m_lockHash.get(pid);
     		synchronized (lockSet) { try { lockSet.wait(); } catch (InterruptedException e1) { e1.printStackTrace(); } }
@@ -74,7 +79,7 @@ public class PLock {
 			if (lockSet.containsKey(new PLock(tid, pid, Permissions.READ_ONLY))){
 				if (lockSet.size() <= 1){
 					releaseLock(tid, pid);
-					acquireLock(tid, pid, perm);
+					lockIt(tid, pid, perm);
 					return true;
 				}
 				return false;    				
@@ -247,12 +252,12 @@ public class PLock {
 //				mustHold(PLock.holdsLock(tid, pid2)==false,"*ERROR*");
 //				mustHold(PLock.holdsLock(tid, pid3)==false,"ERROR**");
 				
-				PLock.acquireLock(tid, pid1, perm_r);
+//				PLock.acquireLock(tid, pid1, perm_r);
 //				mustHold(PLock.holdsLock(tid, pid1)==true,"*ERROR*");
 //				mustHold(PLock.holdsLock(tid, pid2)==false,"*ERROR**");
-				PLock.acquireLock(tid, pid2, perm_r);
+//				PLock.acquireLock(tid, pid2, perm_r);
 //				mustHold(PLock.holdsLock(tid, pid2)==true,"**ERROR*");
-				PLock.acquireLock(tid, pid3, perm_r);
+//				PLock.acquireLock(tid, pid3, perm_r);
 //				mustHold(PLock.holdsLock(tid, pid1)==true,"**ERROR*");
 //				mustHold(PLock.holdsLock(tid, pid2)==true,"*ERROR**");
 //				mustHold(PLock.holdsLock(tid, pid3)==true,"*ERROR**");
@@ -260,7 +265,7 @@ public class PLock {
 			if (id == 1){
 				try { Thread.sleep(100); } catch (InterruptedException e) { e.printStackTrace(); }
 //				mustHold(PLock.holdsLock(tid, pid1)==false,"ERROR***");
-				PLock.acquireLock(tid, pid1, perm_w);
+//				PLock.acquireLock(tid, pid1, perm_w);
 //				mustHold(PLock.holdsLock(tid, pid1)==true,"**ERROR*");
 			}
 			try { Thread.sleep(1000); } catch (InterruptedException e) { e.printStackTrace(); }

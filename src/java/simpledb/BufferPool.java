@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -108,7 +109,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for proj1
-    	PLock.releaseByTrans(tid);
+    	transactionComplete(tid, true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -129,6 +130,14 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for proj1
+    	if (commit){
+    		flushPages(tid);
+    	} else {
+    		//abort
+    		//revert any changes made by the transaction by restoring the page to its on-disk state
+    		revertPages(tid);
+    	}
+    	PLock.releaseByTrans(tid);
     }
 
     /**
@@ -232,11 +241,36 @@ public class BufferPool {
     	p.markDirty(false, null);	
     }
 
+    /** Revert all pages of the specified transaction to oldData **/
+    public synchronized void revertPages(TransactionId tid) throws IOException {
+    	Iterator<Page> it = m_pgHash.values().iterator();
+    	while (it.hasNext()){
+    		Page p = it.next();
+    		TransactionId dirtier = p.isDirty();
+    		if (dirtier != null && tid.equals(dirtier)){
+    			PageId pid = p.getId();
+                Page oldPage = p.getBeforeImage();
+                m_pgHash.put(pid, oldPage);
+    			p.markDirty(false, null);
+    		}
+    	}
+    }
+    
     /** Write all pages of the specified transaction to disk.
      */
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for proj1
+    	Iterator<Page> it = m_pgHash.values().iterator();
+    	while (it.hasNext()){
+    		Page p = it.next();
+    		TransactionId dirtier = p.isDirty();
+    		if (dirtier != null && tid.equals(dirtier)){
+    			flushPage(p.getId());
+    			p.setBeforeImage();
+    			p.markDirty(false, null);
+    		}
+    	}
     }
 
     /**

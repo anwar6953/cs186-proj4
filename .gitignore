@@ -1,6 +1,8 @@
 #  Custom files   #
 ###################
-# systemtest\*
+systemtest\*
+*.properties
+log
 
 # Compiled source #
 ###################
