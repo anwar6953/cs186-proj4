@@ -43,12 +43,12 @@ public class PLock {
     	long time_i = System.currentTimeMillis(); 
     	while (!gotLock(tid, pid, perm)){
     		long time_n = System.currentTimeMillis();
-    		if((time_n-time_i) > 500){
+    		if((time_n-time_i) > 1000){
                 throw new TransactionAbortedException();
     		}
 			log("sleeping.");
 			ConcurrentHashMap<PLock, Boolean> lockSet = m_lockHash.get(pid);
-    		synchronized (lockSet) { try { lockSet.wait(); } catch (InterruptedException e1) { e1.printStackTrace(); } }
+    		synchronized (lockSet) { try { lockSet.wait(100); } catch (InterruptedException e1) { e1.printStackTrace(); } }
     		log("Awoke.");
     	}
     	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(" + pid.pageNumber() + ")");
@@ -125,6 +125,9 @@ public class PLock {
     //pid == null means to unlock all of tid's locks (on all pages).
     static public void releaseLock(TransactionId tid, PageId pid){
     	ConcurrentHashMap<PLock, Boolean> lockSet = m_tidToLocks.get(tid);
+    	
+    	if (lockSet == null)
+    		lockSet = new ConcurrentHashMap<PLock, Boolean>();
     	Iterator<PLock> it = lockSet.keySet().iterator();
 
     	while (it.hasNext()){
