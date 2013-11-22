@@ -23,83 +23,82 @@ public class PLock {
     	String tabs = "";
     	String name = Thread.currentThread().getName();
     	if (!name.equals("main")){ 
-//    		System.out.println(name + name.length());
 	    	int numTabs = Integer.parseInt(name.substring(7, name.length()));
 	    	
 	    	for (int i=0; i<numTabs; i++)
-	    		tabs += "\t";
-	    	
-	    	for (int i=0; i<numTabs; i++)
-	    		tabs += "         ";
+	    		tabs += "            ";
     	}
-    	System.out.println(tabs + s);
+    	System.out.println(tabs + s + "[" + Thread.currentThread().getId() + "]");
     }
     
     public static void mustHold(boolean b, String s){
     	if (!b)
-    		for (int i=0; i<8; i++)
-    			System.out.println("\n" + s);
+    		for (int i=0; i<1; i++)
+    			System.out.println("\n[" + Thread.currentThread().getId() + "]" + s);
 //    		System.out.println("\n\n\n\n\n\n\n\n\n\n\n\n" + s);
     }
 
     //returns when lock is obtained. If not obtainable, Sleeps or blocks until then.
     public static void acquireLock(TransactionId tid, PageId pid, Permissions perm){
     	while (!gotLock(tid, pid, perm)){
-    		//sleep
-    		synchronized (pid) {
-    			log("sleeping.");
-        		try { pid.wait(); } catch (InterruptedException e1) { e1.printStackTrace(); }	
-			}
+			log("sleeping.");
+			ConcurrentHashMap<PLock, Boolean> lockSet = m_lockHash.get(pid);
+    		synchronized (lockSet) { try { lockSet.wait(); } catch (InterruptedException e1) { e1.printStackTrace(); } }
     		log("Awoke.");
-//    		try { Thread.sleep(1000); } catch (InterruptedException e) { e.printStackTrace(); }
     	}
-    	log("Locked.");
+    	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(" + pid.pageNumber() + ")");
     	return;
     }
     
     //Returns true if lock obtained, or false if must block/sleep.
     public static boolean gotLock(TransactionId tid, PageId pid, Permissions perm){
-    	synchronized (pid) {
-    		
-    		if (pid.pageNumber() == 0)
-        	System.out.println("tid: " + tid.getId() + ", pid: " + pid.pageNumber() + ", Perm: " + perm);
-		ConcurrentHashMap<PLock, Boolean> lockSet = m_lockHash.get(pid);
-		
+    	ConcurrentHashMap<PLock, Boolean> lockSet = m_lockHash.get(pid);
     	if (lockSet == null){
     		lockSet = new ConcurrentHashMap<PLock, Boolean>();
     		m_lockHash.put(pid, lockSet);
-    		PLock.lockIt(tid, pid, perm);
-    		return true;
-    	} 
+    	}
     	
-    	//lockSet is not null now.
-		if (lockSet.containsKey(new PLock(tid, pid, perm))){
-			return true;  // This Transaction already has a lock
-		}
-		
-		if (lockSet.containsKey(new PLock(tid, pid, Permissions.READ_ONLY)) || lockSet.containsKey(new PLock(tid, pid, Permissions.READ_WRITE))){
-			System.out.println("containsKey");
-			if (lockSet.size() <= 1){
-				releaseLock(tid, pid);
-				acquireLock(tid, pid, perm);
+    	synchronized (lockSet) {
+	    		
+	    	//lockSet is not null:
+			if (lockSet.containsKey(new PLock(tid, pid, perm))){
+				return true;  // This Transaction already has a lock
+			}
+			
+			//If lockSet contains a Write Lock from this trans on this page, 
+			//we need not do anything (because gotLock is attempting to acquire a read lock).
+			if (lockSet.containsKey(new PLock(tid, pid, Permissions.READ_WRITE))){
 				return true;
 			}
-			return false;    				
-		}
-		
-		if (lockSet.size() != 0){
-			if (perm == Permissions.READ_WRITE){
-				System.out.println("test" + lockSet.size());
-				return false;
+			//IF lockSet contains a READ lock, that means we must upgrade it, if possible.
+			if (lockSet.containsKey(new PLock(tid, pid, Permissions.READ_ONLY))){
+				if (lockSet.size() <= 1){
+					releaseLock(tid, pid);
+					acquireLock(tid, pid, perm);
+					return true;
+				}
+				return false;    				
 			}
-			else if (lockSet.size() == 1){
-	    		if (lockSet.keySet().iterator().next().getPerm() == Permissions.READ_WRITE){
-	    			return false;
-	    		} else { PLock.lockIt(tid, pid, perm); return true; }
+			
+			//tid doesn't have any existing lock on the page:
+			//if lockSet.size == 0, skip this, and place the lock.
+			if (lockSet.size() != 0){
+				//if WRITE lock is requested, it can ONLY be granted if lockSet.size == 0
+				if (perm == Permissions.READ_WRITE){
+					return false;
+				}
+				
+				//otherwise, we're trying to get a READ lock. We can only get this, if none
+				//of the current locks are write locks, we check this by checking if there's one lock
+				//and its a write lock (can't have write lock if lockSet.size() > 1).
+				else if (lockSet.size() == 1){
+		    		if (lockSet.keySet().iterator().next().getPerm() == Permissions.READ_WRITE){
+		    			return false;
+		    		}
+				}
 			}
-		}
-		PLock.lockIt(tid, pid, perm);
-		return true;
+			PLock.lockIt(tid, pid, perm);
+			return true;
     	
     	}
     }
@@ -118,34 +117,35 @@ public class PLock {
     }
     
     //Actually releases the lock associated with Transaction tid AND on page w/ PageId pid.
+    //pid == null means to unlock all of tid's locks (on all pages).
     static public void releaseLock(TransactionId tid, PageId pid){
     	ConcurrentHashMap<PLock, Boolean> lockSet = m_tidToLocks.get(tid);
     	Iterator<PLock> it = lockSet.keySet().iterator();
-    	
+
     	while (it.hasNext()){
     		PLock l = it.next();
     		PageId pgid = l.pid;
     		if (pid == null || pgid.equals(pid)){
-    			log("Released.");
+    			log("Released(" + pgid.pageNumber() + ")");
 	    		ConcurrentHashMap<PLock, Boolean> lockSet2 = m_lockHash.get(pgid);
-	    		Boolean result1 = lockSet2.remove(new PLock(tid, pid, Permissions.READ_ONLY));
-	    		Boolean result2 = lockSet2.remove(new PLock(tid, pid, Permissions.READ_WRITE));
-	    		Boolean result3 = lockSet.remove(new PLock(tid, pid, Permissions.READ_ONLY));
-	    		Boolean result4 = lockSet.remove(new PLock(tid, pid, Permissions.READ_WRITE));
+	    		Boolean result1 = lockSet2.remove(new PLock(tid, pgid, Permissions.READ_ONLY));
+	    		Boolean result2 = lockSet2.remove(new PLock(tid, pgid, Permissions.READ_WRITE));
+	    		Boolean result3 = lockSet.remove(new PLock(tid, pgid, Permissions.READ_ONLY));
+	    		Boolean result4 = lockSet.remove(new PLock(tid, pgid, Permissions.READ_WRITE));
 	    		
 	    		//Ensure that two keys were removed:
-	    		int x  = (result1!=null?1:0) + (result2!=null?1:0);
-	    		x += (result3!=null?1:0) + (result4!=null?1:0);
-	    		mustHold(x==2, "2 entires were not removed in releaseLock");
+//	    		int x  = (result1!=null?1:0) + (result2!=null?1:0);
+//	    		x += (result3!=null?1:0) + (result4!=null?1:0);
+//	    		mustHold(x==2, "2 entires were not removed in releaseLock" + x);
 	    		
-	        	synchronized (pgid) {
-	        		pid.notifyAll();
+	        	synchronized (lockSet2) {
+	        		lockSet2.notifyAll();
 	    		}
     		}
     	}
     	
-    	if (pid == null)
-    		mustHold(lockSet.size() == 1, "all locks for a tid should've been released.");
+//    	if (pid == null)
+//    		mustHold(lockSet.size() == 0, "all locks for a tid should've been released.");
     	
     }
     
@@ -226,44 +226,63 @@ public class PLock {
 
 	private static class testClass implements Runnable {
 		private TransactionId tid;
-		private Permissions perm;
-		private PageId pid;
+		private int id;
 		
-		public testClass(TransactionId tid, Permissions perm, PageId pid){
-			this.tid = tid;
-			this.perm = perm;
-			this.pid = pid;
+		public testClass(int pid){
+			this.tid = new TransactionId();;
+			this.id = pid;
 		}
 		
 		public void run(){
-			Thread t = Thread.currentThread();
-			PLock.acquireLock(tid, pid, perm);
+			Permissions perm_r = Permissions.READ_ONLY;
+			Permissions perm_w = Permissions.READ_WRITE;
+			
+			HeapPageId pid1 = new HeapPageId(0, 0);
+			HeapPageId pid2 = new HeapPageId(0, 1);
+			HeapPageId pid3 = new HeapPageId(0, 2);
+			
+			log("" + tid.myid);
+			if (id == 0){
+//				mustHold(PLock.holdsLock(tid, pid1)==false,"ERROR");
+//				mustHold(PLock.holdsLock(tid, pid2)==false,"*ERROR*");
+//				mustHold(PLock.holdsLock(tid, pid3)==false,"ERROR**");
+				
+				PLock.acquireLock(tid, pid1, perm_r);
+//				mustHold(PLock.holdsLock(tid, pid1)==true,"*ERROR*");
+//				mustHold(PLock.holdsLock(tid, pid2)==false,"*ERROR**");
+				PLock.acquireLock(tid, pid2, perm_r);
+//				mustHold(PLock.holdsLock(tid, pid2)==true,"**ERROR*");
+				PLock.acquireLock(tid, pid3, perm_r);
+//				mustHold(PLock.holdsLock(tid, pid1)==true,"**ERROR*");
+//				mustHold(PLock.holdsLock(tid, pid2)==true,"*ERROR**");
+//				mustHold(PLock.holdsLock(tid, pid3)==true,"*ERROR**");
+			}
+			if (id == 1){
+				try { Thread.sleep(100); } catch (InterruptedException e) { e.printStackTrace(); }
+//				mustHold(PLock.holdsLock(tid, pid1)==false,"ERROR***");
+				PLock.acquireLock(tid, pid1, perm_w);
+//				mustHold(PLock.holdsLock(tid, pid1)==true,"**ERROR*");
+			}
 			try { Thread.sleep(1000); } catch (InterruptedException e) { e.printStackTrace(); }
-			PLock.releaseLock(tid, pid);
+//			PLock.releaseLock(tid, pid1);
+			PLock.releaseByTrans(tid);
+//			mustHold(PLock.holdsLock(tid, pid1)==false,"*ERROR**");
+//			mustHold(PLock.holdsLock(tid, pid2)==false,"*ERROR**");
+//			mustHold(PLock.holdsLock(tid, pid3)==false,"*ERROR**");
 		}
 	}
 	
 	public static void main(String [ ] args) throws Exception
 	{
-		TransactionId tid1 = new TransactionId();
-		TransactionId tid2 = new TransactionId();
-		TransactionId tid3 = new TransactionId();
-		
-		HeapPageId pid1 = new HeapPageId(0, 0);
-		HeapPageId pid2 = new HeapPageId(0, 0);
-		
-		Permissions perm_r = Permissions.READ_ONLY;
-		Permissions perm_w = Permissions.READ_WRITE;
-
-		Thread t1 = new Thread(new testClass(tid1, perm_r, pid1));
-		Thread t2 = new Thread(new testClass(tid2, perm_r, pid1));
-		Thread t3 = new Thread(new testClass(tid3, perm_w, pid1));
+		Thread t1 = new Thread(new testClass(0));
+		Thread t2 = new Thread(new testClass(1));
+//		Thread t3 = new Thread(new testClass(2));
 		t1.start();
 		t2.start();
-		t3.start();
+//		t3.start();
 		t1.join();
 		t2.join();
-		t3.join();
+//		t3.join();
 		
 	}
 }
