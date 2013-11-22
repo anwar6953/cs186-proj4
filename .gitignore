@@ -3,6 +3,7 @@
 systemtest\*
 *.properties
 log
+*.dat
 
 # Compiled source #
 ###################
