@@ -7,9 +7,9 @@ CS186       Project 4 Write Up
 -------------------------------------------------------------------------------
 Describe any design decisions you made, including your deadlock detection policy, locking granularity, etc.
 ----
-    For deadlock detection, we decided that the simplest method is to have a timeout. If a transaction attempts to acquire a lock, it sleeps on the lock-set for that page (it will be notified/awoken if any lock on that page is released), and if after 1000ms it fails to succesfully acquire a lock, this is taken as a deadlock. We could have implemented the algorithm learned in class, but we decided that this was a much simpler and bug-free solution.
+    For deadlock detection, we decided that the simplest method is to have a timeout. If a transaction attempts to acquire a lock, it sleeps on the lock-set for that page (it will be notified/awoken if any lock on that page is released), and if after 1000ms it fails to successfully acquire a lock, this is taken as a deadlock. We could have implemented the algorithm learned in class, but we decided that this was a much simpler and bug-free solution.
     
-    For deadlock resolution, we simply abort the transaction that determined that it was in a deadlock. Any transaction whose acquireLock() call doesn't suceed within 1000ms automatically aborts. We decided this was the simplest of the many possibities, because aborting other transactions would require more communication.
+    For deadlock resolution, we simply abort the transaction that determined that it was in a deadlock. Any transaction whose acquireLock() call doesn't succeed within 1000ms automatically aborts. We decided this was the simplest of the many possibilities, because aborting other transactions would require more communication.
     
     We locked on the page-granularity primarily because of the simplicity of such a solution. We could implement all locking within BufferPool#getPage(). Our data structure is a class named PLock, of which there are static methods that act like a Lock Manager for these page locks. Sections of the PLock.java source file are synchronized by page, so that multiple threads do not affect each other adversely, as they attempt to acquire their lock(s). The hashset which keeps track of the page-to-locks associations is also a ConcurrentHashMap, for the same reason.
 
@@ -20,7 +20,7 @@ Describe any design decisions you made, including your deadlock detection policy
 In part 2.3, we ask you to implement NO STEAL/FORCE buffer management policy and assume that the system won't crash while running transactionComplete. Why does NO STEAL/FORCE and no crashes while processing transactionComplete makes your job easier. In other words, what, what's complicated about implementing STEAL/NO FORCE buffer management policy and what measures do we need to take if our system could crash while running transactionComplete
 ----
     No Steal means that page eviction never evicts dirty pages, meaning that if a transaction ever crashes, we never have undo any page writes, because none of its affected/dirty pages are written to disk. Similarly, force means we flush all pages by a committing transaction, meaning that if the system crashes after a transaction commits, its corresponding pages are guaranteed to be on disk. This enables us to avoid 'redoing' the writes for the transaction's pages. 
-    Also, assuming that transactionComplete acts atomicically enables us to dismiss the possibility that the system crashes while only some portion of a committing transaction's pages are in disk upon a crash.
+    Also, assuming that transactionComplete acts automatically enables us to dismiss the possibility that the system crashes while only some portion of a committing transaction's pages are in disk upon a crash.
     
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -36,3 +36,4 @@ Discuss and justify any changes you made to the API.
     
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
+
