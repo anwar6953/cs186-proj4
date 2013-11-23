@@ -21,7 +21,7 @@ In part 2.3, we ask you to implement NO STEAL/FORCE buffer management policy and
 ----
     No Steal means that page eviction never evicts dirty pages, meaning that if a transaction ever crashes, we never have undo any page writes, because none of its affected/dirty pages are written to disk. Similarly, force means we flush all pages by a committing transaction, meaning that if the system crashes after a transaction commits, its corresponding pages are guaranteed to be on disk. This enables us to avoid 'redoing' the writes for the transaction's pages. 
     Also, assuming that transactionComplete acts automatically enables us to dismiss the possibility that the system crashes while only some portion of a committing transaction's pages are in disk upon a crash.
-    
+
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 What ACID property do these simplifications above aim to guarantee?
