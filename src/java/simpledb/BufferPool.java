@@ -98,6 +98,11 @@ public class BufferPool {
     	PLock.releaseLock(tid, pid);
     }
 
+    /** Releases all locks associated with this transaction **/
+    public void releaseAllPageLocks(TransactionId tid){
+    	PLock.releaseByTrans(tid);    	
+    }
+    
     /**
      * Release all locks associated with a given transaction.
      *

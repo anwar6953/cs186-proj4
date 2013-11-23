@@ -135,7 +135,7 @@ public class TransactionTest extends SimpleDbTestBase {
                         tr.commit();
                         break;
                     } catch (TransactionAbortedException te) {
-                        //System.out.println("thread " + tr.getId() + " killed");
+//                        System.out.println("thread " + Thread.currentThread().getId() + " killed");
                         // give someone else a chance: abort the transaction
                         tr.transactionComplete(true);
                         latch.stillParticipating();
@@ -155,6 +155,7 @@ public class TransactionTest extends SimpleDbTestBase {
                 throw new RuntimeException(e);
             }
             completed = true;
+//            System.out.println("thread " + Thread.currentThread().getId() + " completed");
         }
     }
     

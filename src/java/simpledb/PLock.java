@@ -1,7 +1,5 @@
 package simpledb;
 
-import java.io.*;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -13,10 +11,12 @@ public class PLock {
 
     private static ConcurrentHashMap<PageId, ConcurrentHashMap<PLock, Boolean>> m_lockHash = new ConcurrentHashMap<PageId, ConcurrentHashMap<PLock, Boolean>>();
     private static ConcurrentHashMap<TransactionId, ConcurrentHashMap<PLock, Boolean>> m_tidToLocks = new ConcurrentHashMap<TransactionId, ConcurrentHashMap<PLock, Boolean>>();
+    private static TransactionId m_dl = null;
     
     public static void reset(){
     	m_lockHash = new ConcurrentHashMap<PageId, ConcurrentHashMap<PLock, Boolean>>();
     	m_tidToLocks = new ConcurrentHashMap<TransactionId, ConcurrentHashMap<PLock, Boolean>>();
+    	m_dl = null;
     }
     
     public static void log(String s){
@@ -42,18 +42,27 @@ public class PLock {
     public static void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException{
     	long time_i = System.currentTimeMillis(); 
 //    	log("Attempt" + (perm==Permissions.READ_WRITE?"X":"S") + "(pid:" + pid.pageNumber() + ", tid: " + tid.getId() + ")");
+    	
     	while (!gotLock(tid, pid, perm)){
-    		long time_n = System.currentTimeMillis();
-//    		System.out.println((time_n-time_i));
-    		if((time_n-time_i) > 1000){
-                throw new TransactionAbortedException();
+    		if (m_dl == null){
+	    		synchronized (m_lockHash) {
+	        		if (m_dl == null)
+	        			m_dl = tid;				
+				}
     		}
 			log("sleeping.");
 			ConcurrentHashMap<PLock, Boolean> lockSet = m_lockHash.get(pid);
-    		synchronized (lockSet) { try { lockSet.wait(100); } catch (InterruptedException e1) { e1.printStackTrace(); } }
+    		synchronized (lockSet) { try { lockSet.wait(10); } catch (InterruptedException e1) { e1.printStackTrace(); } }
     		log("Awoke.");
+    		
+    		long time_n = System.currentTimeMillis();
+    		
+    		if((time_n-time_i) > (100) && !tid.equals(m_dl)){
+                throw new TransactionAbortedException();
+    		}
+
     	}
-//    	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(pid:" + pid.pageNumber() + ", tid: " + tid.getId() + ")");
+    	m_dl = null;
     	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(pid:" + pid.pageNumber() + ")");
     	return;
     }
@@ -122,6 +131,8 @@ public class PLock {
     		m_tidToLocks.put(tid,lockSet2);
     	}
     	m_tidToLocks.get(tid).put(l, new Boolean(true));
+    	
+//    	m_deadLocks.remove(pid);
     }
     
     //Actually releases the lock associated with Transaction tid AND on page w/ PageId pid.
