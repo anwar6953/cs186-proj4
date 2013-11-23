@@ -138,10 +138,10 @@ public class Join extends Operator {
                     //TODO:
                     //BUG:
                     //Likely, the issue is that one of the tuples in the child iterator has a different numFields.
-                    System.out.println(this.hashCode());
-                    System.out.println("num1: " + m_child1.getTupleDesc().numFields() + ", num2: " + m_child2.getTupleDesc().numFields() + ", t3: " + m_td.numFields());
-                    System.out.println("num1: " + t1Size + ", num2: " + t2Size + ", t3: " + m_td.numFields());
-                        System.out.println("iVal: " + (i + t1Size));
+//                    System.out.println(this.hashCode());
+//                    System.out.println("num1: " + m_child1.getTupleDesc().numFields() + ", num2: " + m_child2.getTupleDesc().numFields() + ", t3: " + m_td.numFields());
+//                    System.out.println("num1: " + t1Size + ", num2: " + t2Size + ", t3: " + m_td.numFields());
+//                        System.out.println("iVal: " + (i + t1Size));
             			t3.setField(i + t1Size, t2.getField(i));
                     }
             		return t3;
