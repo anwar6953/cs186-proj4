@@ -159,7 +159,7 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public DbFileIterator iterator(TransactionId tid) {    	
+    public DbFileIterator iterator(final TransactionId tid) {    	
 //         some code goes here
     	
     	DbFileIterator dbfi = new DbFileIterator() {
@@ -170,7 +170,8 @@ public class HeapFile implements DbFile {
         	int open = 0;        	
         	
         	//Todo: pass along the tid from the outer method.
-        	TransactionId m_tid = new TransactionId();
+        	//DONE. by making tid param final.
+        	TransactionId m_tid = tid;
         	
         	Iterator<Tuple> titr = null;
         	
@@ -180,7 +181,7 @@ public class HeapFile implements DbFile {
 				open();
 			}
 			
-			public void nextPage() throws DbException {
+			public void nextPage() throws DbException, TransactionAbortedException {
 
 				if (pgno >= numPages())
 					return;
@@ -192,8 +193,6 @@ public class HeapFile implements DbFile {
 						throw new DbException("blah blah blah");
 					pgno++;
 					return;
-				} catch (TransactionAbortedException e) {
-					e.printStackTrace();
 				} catch (DbException e) {
 					e.printStackTrace();
 				}

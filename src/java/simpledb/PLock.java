@@ -41,8 +41,10 @@ public class PLock {
     //returns when lock is obtained. If not obtainable, Sleeps or blocks until then.
     public static void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException{
     	long time_i = System.currentTimeMillis(); 
+//    	log("Attempt" + (perm==Permissions.READ_WRITE?"X":"S") + "(pid:" + pid.pageNumber() + ", tid: " + tid.getId() + ")");
     	while (!gotLock(tid, pid, perm)){
     		long time_n = System.currentTimeMillis();
+//    		System.out.println((time_n-time_i));
     		if((time_n-time_i) > 1000){
                 throw new TransactionAbortedException();
     		}
@@ -51,7 +53,8 @@ public class PLock {
     		synchronized (lockSet) { try { lockSet.wait(100); } catch (InterruptedException e1) { e1.printStackTrace(); } }
     		log("Awoke.");
     	}
-    	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(" + pid.pageNumber() + ")");
+//    	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(pid:" + pid.pageNumber() + ", tid: " + tid.getId() + ")");
+    	log("Locked_" + (perm==Permissions.READ_WRITE?"X":"S") + "(pid:" + pid.pageNumber() + ")");
     	return;
     }
     
@@ -125,7 +128,6 @@ public class PLock {
     //pid == null means to unlock all of tid's locks (on all pages).
     static public void releaseLock(TransactionId tid, PageId pid){
     	ConcurrentHashMap<PLock, Boolean> lockSet = m_tidToLocks.get(tid);
-    	
     	if (lockSet == null)
     		lockSet = new ConcurrentHashMap<PLock, Boolean>();
     	Iterator<PLock> it = lockSet.keySet().iterator();

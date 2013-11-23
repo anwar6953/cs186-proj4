@@ -2,10 +2,9 @@ package simpledb;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -25,7 +24,7 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
-    HashMap<PageId, Page> m_pgHash;
+    ConcurrentHashMap<PageId, Page> m_pgHash;
     LinkedHashMap<PageId, Boolean> evictMap;
     int m_limit;
     
@@ -37,7 +36,7 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-    	m_pgHash = new HashMap<PageId, Page>();
+    	m_pgHash = new ConcurrentHashMap<PageId, Page>();
     	m_limit = numPages;
     	evictMap = new LinkedHashMap<PageId, Boolean>(numPages/2,0.75f,true);
     	PLock.reset();
@@ -58,27 +57,25 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
     	PLock.acquireLock(tid, pid, perm);
+
+    	if (m_pgHash.size() >= m_limit && !m_pgHash.containsKey(pid))
+    		evictPage();
     	
     	if (evictMap.containsKey(pid))
     		evictMap.get(pid);
     	else
     		evictMap.put(pid, false);
-//    	evictMap.
     	
-    	
-    	Page pg;
     	
     	if (m_pgHash.containsKey(pid))
     		return m_pgHash.get(pid);
 
-    	if (m_pgHash.size() >= m_limit)
-    		evictPage();
-    	
 
+    	Page pg;
     	DbFile file = Database.getCatalog().getDbFile(pid.getTableId());
     	
     	pg = file.readPage(pid);
@@ -95,7 +92,7 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      * @param pid the ID of the page to unlock
      */
-    public  void releasePage(TransactionId tid, PageId pid) {
+    public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for proj1
     	PLock.releaseLock(tid, pid);
@@ -283,7 +280,15 @@ public class BufferPool {
     	PageId pid;
     	PageId pidToFlush = null;
     	
+    	
+//    	Iterator<PageId> it2 = m_pgHash.keySet().iterator();
     	Iterator<PageId> it = evictMap.keySet().iterator();
+//    	while (it.hasNext())
+//    		System.out.println("1: " + it.next().pageNumber());
+//    	while (it.hasNext())
+//    		System.out.println("2: " + it2.next().pageNumber());
+    	
+    	
     	while(it.hasNext()){
     		pid = it.next();
     		Page p = m_pgHash.get(pid);
